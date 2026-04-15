@@ -1,0 +1,48 @@
+.form {
+  display: grid;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.button {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.7;
+}
+
+.error {
+  color: #b91c1c;
+  margin: 0;
+}
+
+.stateLabel {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 0 0 16px;
+}

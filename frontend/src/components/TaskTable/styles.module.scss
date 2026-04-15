@@ -1,0 +1,88 @@
+.wrapper {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.filterLabel {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+}
+
+.select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px;
+}
+
+.deleteButton {
+  border: 1px solid #ef4444;
+  color: #b91c1c;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.saveButton {
+  border: 1px solid #1d4ed8;
+  color: #1e40af;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.deleteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 8px;
+  width: 100%;
+  min-width: 120px;
+}
+
+.error {
+  color: #b91c1c;
+}

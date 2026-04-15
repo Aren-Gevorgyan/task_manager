@@ -1,0 +1,41 @@
+.page {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  min-height: 100vh;
+  background: #f6f8fb;
+}
+
+.content {
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.logoutButton {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.logoutButton:hover {
+  background: #f3f4f6;
+}
+
+@media (max-width: 1000px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+}
