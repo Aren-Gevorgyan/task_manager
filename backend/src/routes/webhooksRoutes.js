@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const express = require("express");
 const config = require("../config");
 const { processPaymentWebhook } = require("../services/webhookProcessor");
+const { authenticate } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -37,6 +38,25 @@ router.post("/payment", (req, res) => {
   }
 
   res.status(200).json({ received: true });
+
+  setImmediate(() => {
+    processPaymentWebhook({ taskId, status, webhookId });
+  });
+});
+
+router.post("/payment/simulate", authenticate, (req, res) => {
+  const { taskId, status } = req.body;
+  if (!taskId || !status) {
+    return res.status(400).json({ message: "taskId and status are required" });
+  }
+
+  if (!["paid", "failed"].includes(status)) {
+    return res.status(400).json({ message: "status must be paid or failed" });
+  }
+
+  const webhookId = `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  res.status(200).json({ received: true, webhookId });
 
   setImmediate(() => {
     processPaymentWebhook({ taskId, status, webhookId });

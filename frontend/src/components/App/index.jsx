@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { createTask, deleteTask, getTasks, updateTask } from "../../api/client";
+import {
+  createTask,
+  deleteTask,
+  getTasks,
+  simulatePaymentWebhook,
+  updateTask,
+} from "../../api/client";
 import EventLogPanel from "../EventLogPanel";
 import LoginForm from "../LoginForm";
+import PaymentWebhookSimulator from "../PaymentWebhookSimulator";
 import TaskForm from "../TaskForm";
 import TaskTable from "../TaskTable";
 import { useAuthSession } from "../../hooks/useAuthSession";
@@ -107,6 +114,23 @@ const App = () => {
     }
   };
 
+  const handleSimulatePayment = async ({ taskId, status }) => {
+    setTaskError("");
+    try {
+      const result = await simulatePaymentWebhook({ taskId, status }, token);
+      appendEvent({
+        type: "webhook_requested",
+        message: `Webhook requested: Payment ${status} for task ${taskId}`,
+        data: { taskId, status, webhookId: result.webhookId },
+      });
+    } catch (error) {
+      if (handleAuthFailure(error, "Failed to simulate payment webhook")) {
+        return;
+      }
+      setTaskError(error.message || "Failed to simulate payment webhook");
+    }
+  };
+
   return (
     <main className={styles.page}>
       <section className={styles.content}>
@@ -139,6 +163,9 @@ const App = () => {
           isLoading={isLoadingTasks}
           error={taskError}
         />
+
+        <PaymentWebhookSimulator token={token} tasks={tasks} onSimulate={handleSimulatePayment} />
+
       </section>
 
       <EventLogPanel entries={eventLog} />

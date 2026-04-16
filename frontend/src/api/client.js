@@ -63,3 +63,12 @@ export const deleteTask = async (taskId, token) => {
   });
   return parseResponse(response);
 };
+
+export const simulatePaymentWebhook = async ({ taskId, status }, token) => {
+  const response = await fetch(`${API_BASE_URL}/webhooks/payment/simulate`, {
+    method: "POST",
+    headers: withAuth(token),
+    body: JSON.stringify({ taskId, status }),
+  });
+  return parseResponse(response);
+};

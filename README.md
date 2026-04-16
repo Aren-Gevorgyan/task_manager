@@ -145,3 +145,12 @@ curl -X POST http://localhost:3000/webhooks/payment \
   -H "x-signature: sha256=YOUR_SIGNATURE" \
   -d '{"taskId":"TASK_ID","status":"paid","webhookId":"evt-1"}'
 ```
+
+### UI helper for payment simulation
+If you prefer not to compute signatures manually, use the frontend section **Payment webhook simulator**.
+It calls an authenticated helper endpoint:
+
+- `POST /webhooks/payment/simulate` (JWT required)
+- payload: `{ "taskId": "...", "status": "paid" | "failed" }`
+
+This helper immediately queues webhook processing and still triggers the same websocket event flow used by the real webhook handler.
