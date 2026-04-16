@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { loginRequest, createTask, deleteTask, getTasks, updateTask } from "../../api/client";
 import EventLogPanel from "../EventLogPanel";
 import LoginForm from "../LoginForm";
@@ -30,7 +30,7 @@ const App = () => {
     ]);
   };
 
-  const loadTasks = async (statusFilter = filter) => {
+  const loadTasks = useCallback(async (statusFilter = filter) => {
     setIsLoadingTasks(true);
     setTaskError("");
     try {
@@ -41,11 +41,11 @@ const App = () => {
     } finally {
       setIsLoadingTasks(false);
     }
-  };
+  }, [filter]);
 
   useEffect(() => {
     loadTasks(filter);
-  }, [filter]);
+  }, [filter, loadTasks]);
 
   useEffect(() => {
     if (!token) {
@@ -83,7 +83,7 @@ const App = () => {
     return () => {
       ws.close();
     };
-  }, [token, filter]);
+  }, [token, filter, loadTasks]);
 
   const handleLogin = async (credentials) => {
     setAuthError("");
@@ -99,7 +99,24 @@ const App = () => {
 
   const handleLogout = () => {
     setToken("");
+    setTasks([]);
+    setTaskError("");
     localStorage.removeItem("token");
+  };
+
+  const handleAuthFailure = (error, fallbackMessage) => {
+    const message = error?.message || fallbackMessage;
+    if (message === "Invalid auth token") {
+      handleLogout();
+      setAuthError("Session expired. Please login again.");
+      appendEvent({
+        type: "auth_expired",
+        payload: { message: "Signed out automatically due to invalid auth token" },
+      });
+      return true;
+    }
+
+    return false;
   };
 
   const handleTaskInputChange = (field, value) => {
@@ -114,6 +131,9 @@ const App = () => {
       setTaskInput(defaultTaskInput);
       await loadTasks(filter);
     } catch (error) {
+      if (handleAuthFailure(error, "Failed to create task")) {
+        return;
+      }
       setTaskError(error.message || "Failed to create task");
     } finally {
       setIsSubmittingTask(false);
@@ -126,6 +146,9 @@ const App = () => {
       await updateTask(taskId, updates, token);
       await loadTasks(filter);
     } catch (error) {
+      if (handleAuthFailure(error, "Failed to update task")) {
+        return;
+      }
       setTaskError(error.message || "Failed to update task");
     }
   };
@@ -136,6 +159,9 @@ const App = () => {
       await deleteTask(taskId, token);
       await loadTasks(filter);
     } catch (error) {
+      if (handleAuthFailure(error, "Failed to delete task")) {
+        return;
+      }
       setTaskError(error.message || "Failed to delete task");
     }
   };

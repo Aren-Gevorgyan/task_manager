@@ -6,12 +6,15 @@ const processPaymentWebhook = async (payload) => {
   const { taskId, status, webhookId } = payload;
 
   try {
-    const existing = await ProcessedWebhook.findOne({ webhookId }).lean();
-    if (existing) {
+    const idempotencyResult = await ProcessedWebhook.updateOne(
+      { webhookId },
+      { $setOnInsert: { webhookId } },
+      { upsert: true },
+    );
+
+    if (!idempotencyResult.upsertedCount) {
       return;
     }
-
-    await ProcessedWebhook.create({ webhookId });
 
     let updatedTask = null;
     if (status === "paid") {
