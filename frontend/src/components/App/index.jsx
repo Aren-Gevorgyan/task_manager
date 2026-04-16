@@ -34,17 +34,6 @@ const App = () => {
 
   const { eventLog, appendEvent } = useEventLog();
 
-  const handleSessionReset = useCallback(() => {
-    setTasks([]);
-    setTaskError("");
-    setTaskInput(defaultTaskInput);
-  }, []);
-
-  const { token, authError, handleLogin, handleLogout, handleAuthFailure } = useAuthSession({
-    appendEvent,
-    onSessionReset: handleSessionReset,
-  });
-
   const loadTasks = useCallback(async (statusFilter = filter) => {
     setIsLoadingTasks(true);
     setTaskError("");
@@ -57,6 +46,18 @@ const App = () => {
       setIsLoadingTasks(false);
     }
   }, [filter]);
+
+  const handleSessionReset = useCallback(() => {
+    setTaskError("");
+    setTaskInput(defaultTaskInput);
+    loadTasks(filter);
+  }, [filter, loadTasks]);
+
+  const { token, authError, handleLogin, handleLogout, handleAuthFailure } = useAuthSession({
+    appendEvent,
+    onSessionReset: handleSessionReset,
+    onLoginSuccess: () => loadTasks(filter),
+  });
 
   useEffect(() => {
     loadTasks(filter);
@@ -156,7 +157,14 @@ const App = () => {
         <header className={styles.header}>
           <h1>Task Manager Admin</h1>
           {token ? (
-            <button type="button" onClick={handleLogout} className={styles.logoutButton}>
+            <button
+              type="button"
+              onClick={() => {
+                handleLogout();
+                loadTasks(filter);
+              }}
+              className={styles.logoutButton}
+            >
               Logout
             </button>
           ) : null}

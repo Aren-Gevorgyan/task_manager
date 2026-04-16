@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { loginRequest } from "../api/client";
 
-export const useAuthSession = ({ appendEvent, onSessionReset }) => {
+export const useAuthSession = ({ appendEvent, onSessionReset, onLoginSuccess }) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [authError, setAuthError] = useState("");
 
@@ -20,11 +20,12 @@ export const useAuthSession = ({ appendEvent, onSessionReset }) => {
         setToken(response.token);
         localStorage.setItem("token", response.token);
         appendEvent({ type: "login_success", payload: { username: credentials.username } });
+        onLoginSuccess?.(response.token);
       } catch (error) {
         setAuthError(error.message || "Login failed");
       }
     },
-    [appendEvent],
+    [appendEvent, onLoginSuccess],
   );
 
   const handleAuthFailure = useCallback(
