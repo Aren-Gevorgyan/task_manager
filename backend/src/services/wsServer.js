@@ -27,6 +27,7 @@ const initWebSocketServer = (server) => {
     socket.send(
       JSON.stringify({
         event: "connected",
+        data: { message: "WebSocket connection established" },
         payload: { message: "WebSocket connection established" },
       }),
     );
@@ -38,7 +39,12 @@ const broadcast = (event, payload) => {
     return;
   }
 
-  const message = JSON.stringify({ event, payload, timestamp: new Date().toISOString() });
+  const message = JSON.stringify({
+    event,
+    data: payload,
+    payload,
+    timestamp: new Date().toISOString(),
+  });
 
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {

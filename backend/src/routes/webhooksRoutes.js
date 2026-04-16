@@ -8,6 +8,16 @@ const router = express.Router();
 const computeSignature = (body) =>
   crypto.createHmac("sha256", config.webhookSecret).update(JSON.stringify(body)).digest("hex");
 
+const normalizeSignature = (signatureHeaderValue) => {
+  if (!signatureHeaderValue) {
+    return "";
+  }
+
+  return signatureHeaderValue.startsWith("sha256=")
+    ? signatureHeaderValue.slice("sha256=".length)
+    : signatureHeaderValue;
+};
+
 router.post("/payment", (req, res) => {
   const signature = req.headers["x-signature"];
   if (!signature) {
@@ -15,7 +25,8 @@ router.post("/payment", (req, res) => {
   }
 
   const expected = computeSignature(req.body);
-  if (signature !== expected) {
+  const provided = normalizeSignature(signature);
+  if (provided !== expected) {
     return res.status(401).json({ message: "Invalid signature" });
   }
 

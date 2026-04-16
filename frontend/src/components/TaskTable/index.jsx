@@ -89,6 +89,7 @@ const TaskTable = ({
                 <th>Status</th>
                 <th>Assignee</th>
                 <th>Due date</th>
+                <th>Payment</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -151,6 +152,7 @@ const TaskTable = ({
                       aria-label={`Edit due date for ${task.title}`}
                     />
                   </td>
+                  <td>{task.paymentStatus || "-"}</td>
                   <td className={styles.actions}>
                     <button
                       type="button"

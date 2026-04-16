@@ -8,10 +8,12 @@ const EventLogPanel = ({ entries }) => {
       <ul className={styles.list}>
         {entries.map((entry) => (
           <li key={entry.id} className={styles.item}>
-            <p className={styles.meta}>
-              <strong>{entry.type}</strong> at {new Date(entry.timestamp).toLocaleTimeString()}
+            <p className={styles.message}>
+              🔔 {new Date(entry.timestamp).toLocaleTimeString()} - {entry.message || entry.type}
             </p>
-            <pre className={styles.payload}>{JSON.stringify(entry.payload, null, 2)}</pre>
+            <pre className={styles.payload}>
+              {JSON.stringify({ event: entry.type, data: entry.data || entry.payload || {} }, null, 2)}
+            </pre>
           </li>
         ))}
       </ul>

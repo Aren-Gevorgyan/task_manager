@@ -142,6 +142,6 @@ Then call webhook:
 ```bash
 curl -X POST http://localhost:3000/webhooks/payment \
   -H "Content-Type: application/json" \
-  -H "x-signature: YOUR_SIGNATURE" \
+  -H "x-signature: sha256=YOUR_SIGNATURE" \
   -d '{"taskId":"TASK_ID","status":"paid","webhookId":"evt-1"}'
 ```
