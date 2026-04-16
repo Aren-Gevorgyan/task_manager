@@ -1,83 +1,94 @@
+import axios from "axios";
+
 const API_BASE_URL = "http://localhost:3000";
 
-const parseResponse = async (response) => {
-  if (response.status === 204) {
-    return null;
-  }
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Request failed");
-  }
-
-  return data;
-};
-
-const withAuth = (token) => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${token}`,
+const client = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: { "Content-Type": "application/json" },
 });
 
-export const loginRequest = async ({ username, password }) => {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
+const toErrorMessage = (error, fallbackMessage = "Request failed") => {
+  const messageFromServer = error?.response?.data?.message;
+  const messageFromAxios = error?.message;
+  return messageFromServer || messageFromAxios || fallbackMessage;
+};
 
-  return parseResponse(response);
+const authHeaders = (token) => ({ Authorization: `Bearer ${token}` });
+
+export const loginRequest = async ({ username, password }) => {
+  try {
+    const response = await client.post("/auth/login", { username, password });
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Login failed"));
+  }
 };
 
 export const getTasks = async (status) => {
-  const query = status && status !== "all" ? `?status=${status}` : "";
-  const response = await fetch(`${API_BASE_URL}/tasks${query}`);
-  return parseResponse(response);
+  try {
+    const response = await client.get("/tasks", {
+      params: status && status !== "all" ? { status } : {},
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to fetch tasks"));
+  }
 };
 
 export const createTask = async ({ title, assignee, dueDate }, token) => {
-  const response = await fetch(`${API_BASE_URL}/tasks`, {
-    method: "POST",
-    headers: withAuth(token),
-    body: JSON.stringify({
-      title,
-      assignee,
-      dueDate: dueDate || null,
-    }),
-  });
-  return parseResponse(response);
+  try {
+    const response = await client.post(
+      "/tasks",
+      { title, assignee, dueDate: dueDate || null },
+      { headers: authHeaders(token) },
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to create task"));
+  }
 };
 
 export const updateTask = async (taskId, updates, token) => {
-  const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-    method: "PATCH",
-    headers: withAuth(token),
-    body: JSON.stringify(updates),
-  });
-  return parseResponse(response);
+  try {
+    const response = await client.patch(`/tasks/${taskId}`, updates, { headers: authHeaders(token) });
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to update task"));
+  }
 };
 
 export const deleteTask = async (taskId, token) => {
-  const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-    method: "DELETE",
-    headers: withAuth(token),
-  });
-  return parseResponse(response);
+  try {
+    await client.delete(`/tasks/${taskId}`, { headers: authHeaders(token) });
+    return null;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to delete task"));
+  }
 };
 
 export const simulatePaymentWebhook = async ({ taskId, status }, token) => {
-  const response = await fetch(`${API_BASE_URL}/webhooks/payment/simulate`, {
-    method: "POST",
-    headers: withAuth(token),
-    body: JSON.stringify({ taskId, status }),
-  });
-  return parseResponse(response);
+  try {
+    const response = await client.post(
+      "/webhooks/payment/simulate",
+      { taskId, status },
+      { headers: authHeaders(token) },
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to simulate payment webhook"));
+  }
 };
 
 export const registerCallback = async ({ url }, token) => {
-  const response = await fetch(`${API_BASE_URL}/callbacks/register`, {
-    method: "POST",
-    headers: withAuth(token),
-    body: JSON.stringify({ url, event: "task.completed" }),
-  });
-  return parseResponse(response);
+  try {
+    const response = await client.post(
+      "/callbacks/register",
+      { url, event: "task.completed" },
+      { headers: authHeaders(token) },
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(toErrorMessage(error, "Failed to register callback"));
+  }
 };
