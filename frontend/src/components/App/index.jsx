@@ -172,8 +172,6 @@ const App = () => {
           isSubmitting={isSubmittingTask}
         />
 
-        <CallbackRegistration token={token} onRegister={handleRegisterCallback} />
-
         <TaskTable
           token={token}
           tasks={tasks}
@@ -184,6 +182,8 @@ const App = () => {
           isLoading={isLoadingTasks}
           error={taskError}
         />
+
+        <CallbackRegistration token={token} onRegister={handleRegisterCallback} />
 
         <PaymentWebhookSimulator token={token} tasks={tasks} onSimulate={handleSimulatePayment} />
 

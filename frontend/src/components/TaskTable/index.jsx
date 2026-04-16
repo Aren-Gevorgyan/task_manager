@@ -40,6 +40,17 @@ const TaskTable = ({
       status: draft.status ?? task.status,
     };
 
+    const originalDueDate = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "";
+    const hasChanges =
+      resolvedDraft.title !== (task.title ?? "") ||
+      resolvedDraft.assignee !== (task.assignee ?? "") ||
+      resolvedDraft.dueDate !== originalDueDate ||
+      resolvedDraft.status !== task.status;
+
+    if (!hasChanges) {
+      return;
+    }
+
     await onTaskUpdate(taskId, {
       title: resolvedDraft.title,
       assignee: resolvedDraft.assignee,
@@ -104,6 +115,11 @@ const TaskTable = ({
                     const dueDate =
                       draft.dueDate ??
                       (task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
+                    const hasChanges =
+                      title !== (task.title ?? "") ||
+                      assignee !== (task.assignee ?? "") ||
+                      dueDate !== (task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "") ||
+                      status !== task.status;
 
                     return (
                       <>
@@ -157,7 +173,7 @@ const TaskTable = ({
                     <button
                       type="button"
                       onClick={() => handleSave(task._id)}
-                      disabled={!token}
+                      disabled={!token || !hasChanges}
                       className={styles.saveButton}
                       aria-label={`Save task ${task.title}`}
                     >
