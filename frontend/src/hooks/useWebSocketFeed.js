@@ -27,6 +27,10 @@ export const useWebSocketFeed = ({ token, appendEvent, loadTasks, filter }) => {
     ws.onmessage = (messageEvent) => {
       try {
         const parsed = JSON.parse(messageEvent.data);
+        // ignore connected event
+        if (parsed.event === "connected") {
+          return;
+        }
         const data = parsed.data || parsed.payload || {};
         appendEvent({
           type: parsed.event,
@@ -49,11 +53,11 @@ export const useWebSocketFeed = ({ token, appendEvent, loadTasks, filter }) => {
     };
 
     ws.onerror = () => {
-      appendEvent({
-        type: "ws_error",
-        message: "WebSocket connection error",
-        data: { message: "WebSocket connection error" },
-      });
+      // appendEvent({
+      //   type: "ws_error",
+      //   message: "WebSocket connection error",
+      //   data: { message: "WebSocket connection error" },
+      // });
     };
 
     return () => {

@@ -3,9 +3,11 @@ import {
   createTask,
   deleteTask,
   getTasks,
+  registerCallback,
   simulatePaymentWebhook,
   updateTask,
 } from "../../api/client";
+import CallbackRegistration from "../CallbackRegistration";
 import EventLogPanel from "../EventLogPanel";
 import LoginForm from "../LoginForm";
 import PaymentWebhookSimulator from "../PaymentWebhookSimulator";
@@ -131,6 +133,23 @@ const App = () => {
     }
   };
 
+  const handleRegisterCallback = async ({ url }) => {
+    setTaskError("");
+    try {
+      await registerCallback({ url }, token);
+      appendEvent({
+        type: "callback_registered",
+        message: `Callback registered for task.completed: ${url}`,
+        data: { url, event: "task.completed" },
+      });
+    } catch (error) {
+      if (handleAuthFailure(error, "Failed to register callback")) {
+        return;
+      }
+      setTaskError(error.message || "Failed to register callback");
+    }
+  };
+
   return (
     <main className={styles.page}>
       <section className={styles.content}>
@@ -152,6 +171,8 @@ const App = () => {
           onCreateTask={handleCreateTask}
           isSubmitting={isSubmittingTask}
         />
+
+        <CallbackRegistration token={token} onRegister={handleRegisterCallback} />
 
         <TaskTable
           token={token}

@@ -72,3 +72,12 @@ export const simulatePaymentWebhook = async ({ taskId, status }, token) => {
   });
   return parseResponse(response);
 };
+
+export const registerCallback = async ({ url }, token) => {
+  const response = await fetch(`${API_BASE_URL}/callbacks/register`, {
+    method: "POST",
+    headers: withAuth(token),
+    body: JSON.stringify({ url, event: "task.completed" }),
+  });
+  return parseResponse(response);
+};
