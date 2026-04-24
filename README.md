@@ -44,6 +44,32 @@ npm run dev
 
 Frontend runs on `http://localhost:5173`.
 
+## Docker (Compose + Volumes)
+
+From project root:
+
+```bash
+docker compose up --build
+```
+
+What this does:
+- starts `mongo`, `backend`, and `frontend`
+- keeps MongoDB data in named volume `mongo_data`
+- mounts `./backend` and `./frontend` into containers for live code reload
+- keeps container `node_modules` in named volumes so host and container deps do not conflict
+
+Stop containers:
+
+```bash
+docker compose down
+```
+
+Stop and remove volumes too:
+
+```bash
+docker compose down -v
+```
+
 ## 5) API Summary
 
 ### Auth

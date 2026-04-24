@@ -1,0 +1,105 @@
+services: # All runnable containers for this project.
+  # MongoDB database service used by the backend API.
+  mongo:
+    # Official MongoDB image version.
+    image: mongo:7
+    # Fixed container name for easier logs/exec commands.
+    container_name: task_manager_mongo
+    # Auto restart unless manually stopped.
+    restart: unless-stopped
+    # Host-to-container port mapping list.
+    ports:
+      # Expose MongoDB to host for local debugging/tools.
+      - "27017:27017"
+    # Data/storage mounts for this service.
+    volumes:
+      # Persist database data even if container is recreated.
+      - mongo_data:/data/db
+    # Container readiness check configuration.
+    healthcheck:
+      # Wait until Mongo responds to ping before dependents start.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # Run healthcheck every 10 seconds.
+      interval: 10s
+      # Mark a single healthcheck as failed after 5 seconds.
+      timeout: 5s
+      # Number of consecutive failures before unhealthy status.
+      retries: 5
+
+  # Express backend API service.
+  backend:
+    # Build configuration for custom backend image.
+    build:
+      # Backend directory used as Docker build context.
+      context: ./backend
+      # Dockerfile path inside backend context.
+      dockerfile: Dockerfile
+    # Fixed container name for easier logs/exec commands.
+    container_name: task_manager_backend
+    # Auto restart unless manually stopped.
+    restart: unless-stopped
+    # Load base environment variables from file.
+    env_file:
+      - ./backend/.env.example
+    # Override or inject environment values at runtime.
+    environment:
+      # Use the docker service name as MongoDB host inside the network.
+      MONGO_URI: mongodb://mongo:27017/task_manager
+      # Allow browser app running on Vite host port.
+      CORS_ORIGIN: http://localhost:5173
+    # Host-to-container port mapping list.
+    ports:
+      # Backend API exposed to host.
+      - "3000:3000"
+    # Startup dependency ordering for backend.
+    depends_on:
+      # Depend on mongo service readiness.
+      mongo:
+        # Start backend only after Mongo healthcheck passes.
+        condition: service_healthy
+    # Code and dependency mounts for development.
+    volumes:
+      # Mount backend source code for live reload during development.
+      - ./backend:/app
+      # Keep Linux container dependencies isolated from host OS modules.
+      - backend_node_modules:/app/node_modules
+    # Keep dependencies in sync after mount, then run nodemon for live reload.
+    command: sh -c "npm install && npm run dev"
+
+  # React + Vite frontend service.
+  frontend:
+    # Build configuration for custom frontend image.
+    build:
+      # Frontend directory used as Docker build context.
+      context: ./frontend
+      # Dockerfile path inside frontend context.
+      dockerfile: Dockerfile
+    # Fixed container name for easier logs/exec commands.
+    container_name: task_manager_frontend
+    # Auto restart unless manually stopped.
+    restart: unless-stopped
+    # Host-to-container port mapping list.
+    ports:
+      # Frontend dev server exposed to host browser.
+      - "5173:5173"
+    # Startup dependency ordering for frontend.
+    depends_on:
+      # Backend should be available before frontend starts making API calls.
+      - backend
+    # Code and dependency mounts for development.
+    volumes:
+      # Mount frontend source code for instant HMR updates.
+      - ./frontend:/app
+      # Keep container node_modules separate from host to avoid conflicts.
+      - frontend_node_modules:/app/node_modules
+    # Install deps inside container volume, then expose Vite dev server to host.
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+
+# Named volumes managed by Docker.
+volumes:
+  # Persistent MongoDB data.
+  mongo_data:
+  # Backend dependency cache inside container environment.
+  backend_node_modules:
+  # Frontend dependency cache inside container environment.
+  frontend_node_modules:
