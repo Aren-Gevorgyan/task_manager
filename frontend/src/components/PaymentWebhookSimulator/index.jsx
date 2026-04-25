@@ -33,7 +33,7 @@ const PaymentWebhookSimulator = ({ token, tasks, onSimulate }) => {
           required
         >
           <option value="">Select task</option>
-          {tasks.map((task) => (
+          {tasks?.map((task) => (
             <option key={task._id} value={task._id}>
               {task.title} ({task._id})
             </option>

@@ -45,8 +45,8 @@ services: # All runnable containers for this project.
     environment:
       # Use the docker service name as MongoDB host inside the network.
       MONGO_URI: mongodb://mongo:27017/task_manager
-      # Allow browser app running on Vite host port.
-      CORS_ORIGIN: http://localhost:5173
+      # Allow browser requests coming through Nginx on host port 80.
+      CORS_ORIGIN: http://localhost
     # Host-to-container port mapping list.
     ports:
       # Backend API exposed to host.
@@ -94,6 +94,28 @@ services: # All runnable containers for this project.
       - frontend_node_modules:/app/node_modules
     # Install deps inside container volume, then expose Vite dev server to host.
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+
+  # Nginx reverse proxy to expose one entrypoint for UI, API, and websocket.
+  nginx:
+    # Use official lightweight Nginx image.
+    image: nginx:alpine
+    # Fixed container name for easier logs/exec commands.
+    container_name: task_manager_nginx
+    # Auto restart unless manually stopped.
+    restart: unless-stopped
+    # Host-to-container port mapping list.
+    ports:
+      # Expose Nginx as the single public app entrypoint.
+      - "80:80"
+    # Mount custom Nginx configuration as read-only.
+    volumes:
+      # Load local reverse-proxy rules into container config path.
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    # Startup dependency ordering for Nginx.
+    depends_on:
+      # Wait for app services to start before proxying.
+      - frontend
+      - backend
 
 # Named volumes managed by Docker.
 volumes:

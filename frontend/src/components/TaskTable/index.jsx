@@ -105,7 +105,7 @@ const TaskTable = ({
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {tasks?.map((task) => (
                 <tr key={task._id}>
                   {(() => {
                     const draft = drafts[task._id] || {};

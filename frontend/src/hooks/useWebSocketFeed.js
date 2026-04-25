@@ -22,7 +22,10 @@ export const useWebSocketFeed = ({ token, appendEvent, loadTasks, filter }) => {
       return undefined;
     }
 
-    const ws = new WebSocket(`ws://localhost:3000?token=${encodeURIComponent(token)}`);
+    // Build websocket URL from current page origin so Nginx can proxy /ws to backend.
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsHost = window.location.host;
+    const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws?token=${encodeURIComponent(token)}`);
 
     ws.onmessage = (messageEvent) => {
       try {

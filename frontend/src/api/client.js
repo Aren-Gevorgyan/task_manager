@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:3000";
+// Route all browser API calls through Nginx, which proxies /api to backend.
+const API_BASE_URL = "/api";
 
 const client = axios.create({
   baseURL: API_BASE_URL,

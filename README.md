@@ -27,7 +27,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Backend runs on `http://localhost:3000`.
+Backend runs on `http://localhost:3000` (direct) and via Nginx at `http://localhost/api`.
 
 Hardcoded test user (can be changed via `.env`):
 - username: `admin`
@@ -42,7 +42,7 @@ cd frontend
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`.
+Frontend runs on `http://localhost:5173` (direct Vite) and through Nginx at `http://localhost`.
 
 ## Docker (Compose + Volumes)
 
@@ -54,9 +54,11 @@ docker compose up --build
 
 What this does:
 - starts `mongo`, `backend`, and `frontend`
+- starts `nginx` as a reverse proxy (`http://localhost`)
 - keeps MongoDB data in named volume `mongo_data`
 - mounts `./backend` and `./frontend` into containers for live code reload
 - keeps container `node_modules` in named volumes so host and container deps do not conflict
+- routes `/api/*` to backend and `/ws` websocket traffic to backend
 
 Stop containers:
 
