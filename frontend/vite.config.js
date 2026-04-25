@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+  },
   server: {
     // Allow direct access on :5173 to proxy API calls to backend container.
     proxy: {
