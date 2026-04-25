@@ -9,7 +9,10 @@ const config = require("./config");
 const app = express();
 
 app.use(cors({ origin: config.corsOrigin }));
-app.use(express.json());
+// Raise JSON payload size limit so frontend can send files larger than 1MB.
+app.use(express.json({ limit: config.bodyLimit }));
+// Keep urlencoded parser limit aligned with JSON limit for form submissions.
+app.use(express.urlencoded({ extended: true, limit: config.bodyLimit }));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

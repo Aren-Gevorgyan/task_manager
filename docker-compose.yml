@@ -47,6 +47,8 @@ services: # All runnable containers for this project.
       MONGO_URI: mongodb://mongo:27017/task_manager
       # Allow browser requests coming through Nginx on host port 80.
       CORS_ORIGIN: http://localhost
+      # Increase backend request body size limit for larger uploads.
+      BODY_LIMIT: 20mb
     # Host-to-container port mapping list.
     ports:
       # Backend API exposed to host.
