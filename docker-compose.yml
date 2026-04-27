@@ -34,8 +34,6 @@ services: # All runnable containers for this project.
       context: ./backend
       # Dockerfile path inside backend context.
       dockerfile: Dockerfile
-    # Fixed container name for easier logs/exec commands.
-    container_name: task_manager_backend
     # Auto restart unless manually stopped.
     restart: unless-stopped
     # Load base environment variables from file.
@@ -49,10 +47,9 @@ services: # All runnable containers for this project.
       CORS_ORIGIN: http://localhost
       # Increase backend request body size limit for larger uploads.
       BODY_LIMIT: 20mb
-    # Host-to-container port mapping list.
-    ports:
-      # Backend API exposed to host.
-      - "3000:3000"
+    # Expose backend port to other containers on Docker network.
+    expose:
+      - "3000"
     # Startup dependency ordering for backend.
     depends_on:
       # Depend on mongo service readiness.
