@@ -121,6 +121,25 @@ services: # All runnable containers for this project.
       - frontend
       - backend
 
+  # Telegram bot service that opens the web app from Telegram.
+  telegram-bot:
+    # Build configuration for Telegram bot image.
+    build:
+      # Telegram bot directory used as Docker build context.
+      context: ./telegram-bot
+      # Dockerfile path inside Telegram bot context.
+      dockerfile: Dockerfile
+    # Auto restart unless manually stopped.
+    restart: unless-stopped
+    # Load Telegram-specific environment variables from file.
+    env_file:
+      - path: ./telegram-bot/.env
+        required: false
+    # Startup dependency ordering for bot.
+    depends_on:
+      # Keep bot start aligned with app stack startup.
+      - nginx
+
 # Named volumes managed by Docker.
 volumes:
   # Persistent MongoDB data.

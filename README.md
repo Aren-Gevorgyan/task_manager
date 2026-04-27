@@ -44,6 +44,30 @@ npm run dev
 
 Frontend runs on `http://localhost:5173` (direct Vite) and through Nginx at `http://localhost`.
 
+## Telegram Bot App
+
+To run this project from Telegram as a Web App launcher:
+
+1. Create your bot via [@BotFather](https://t.me/BotFather) and copy the token.
+2. Use a public HTTPS URL for your app (for example, an ngrok tunnel to `http://localhost`).
+3. Create bot env file:
+
+```bash
+cp telegram-bot/.env.example telegram-bot/.env
+```
+
+Then set:
+- `TELEGRAM_BOT_TOKEN=...`
+- `TELEGRAM_WEB_APP_URL=https://your-public-https-url`
+
+4. Start all services:
+
+```bash
+docker compose up --build
+```
+
+5. Open your bot in Telegram and send `/start`, then tap **Open Task Manager**.
+
 ## Docker (Compose + Volumes)
 
 From project root:
