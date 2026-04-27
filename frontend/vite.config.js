@@ -9,6 +9,8 @@ export default defineConfig({
     globals: true,
   },
   server: {
+    // Allow ngrok hostnames to access Vite dev server.
+    allowedHosts: [".ngrok-free.dev"],
     // Allow direct access on :5173 to proxy API calls to backend container.
     proxy: {
       // Forward REST API requests during local Vite development.
