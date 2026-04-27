@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const app = require("./app");
 const config = require("./config");
 const { initWebSocketServer } = require("./services/wsServer");
+const { initUdpServer } = require("./services/udpServer");
 
 const start = async () => {
   try {
@@ -10,6 +11,7 @@ const start = async () => {
 
     const server = http.createServer(app);
     initWebSocketServer(server);
+    initUdpServer(config.udpPort);
 
     server.listen(config.port, () => {
       console.log(`API listening on http://localhost:${config.port}`);

@@ -47,9 +47,12 @@ services: # All runnable containers for this project.
       CORS_ORIGIN: http://localhost
       # Increase backend request body size limit for larger uploads.
       BODY_LIMIT: 20mb
+      # UDP listener for simple datagram endpoint demos.
+      UDP_PORT: 4000
     # Expose backend port to other containers on Docker network.
     expose:
       - "3000"
+      - "4000/udp"
     # Startup dependency ordering for backend.
     depends_on:
       # Depend on mongo service readiness.
@@ -106,6 +109,8 @@ services: # All runnable containers for this project.
     ports:
       # Expose Nginx as the single public app entrypoint.
       - "80:80"
+      # Expose UDP demo endpoint through Nginx stream proxy.
+      - "4000:4000/udp"
     # Mount custom Nginx configuration as read-only.
     volumes:
       # Load local reverse-proxy rules into container config path.
