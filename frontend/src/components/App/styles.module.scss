@@ -1,12 +1,16 @@
 .page {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: #f6f8fb;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .content {
   padding: 24px;
+  min-width: 0;
 }
 
 .header {
@@ -37,5 +41,18 @@
 @media (max-width: 1000px) {
   .page {
     grid-template-columns: 1fr;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header h1 {
+    font-size: 1.35rem;
   }
 }
