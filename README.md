@@ -29,6 +29,16 @@ npm run dev
 
 Backend runs on `http://localhost:3000` (direct) and via Nginx at `http://localhost/api`.
 
+Backend-only Docker (standalone from `backend/` directory):
+
+```bash
+cd backend
+cp .env.example .env
+docker compose up -d --build
+```
+
+See `backend/DEPLOY_BACKEND_ONLY.md` for server steps.
+
 Hardcoded test user (can be changed via `.env`):
 - username: `admin`
 - password: `password123`
@@ -68,32 +78,66 @@ docker compose up --build
 
 5. Open your bot in Telegram and send `/start`, then tap **Open Task Manager**.
 
-## Docker (Compose + Volumes)
+## Docker (Run in Separate Files)
 
-From project root:
+This repository now includes split compose files so you can run each part independently on a server:
+
+- `docker-compose.infra.yml` -> infrastructure only (`mongo`)
+- `docker-compose.app.yml` -> application only (`backend`, `frontend`, `nginx`)
+- `docker-compose.bot.yml` -> telegram bot only (`telegram-bot`)
+
+### 1) Start infrastructure first
+
+```bash
+docker compose -f docker-compose.infra.yml up -d --build
+```
+
+This creates shared network `task_manager_net` and starts MongoDB.
+
+### 2) Start app services
+
+```bash
+docker compose -f docker-compose.app.yml up -d --build
+```
+
+This starts backend, frontend, and nginx connected to the shared network.
+
+### 3) (Optional) Start Telegram bot
+
+```bash
+cp telegram-bot/.env.example telegram-bot/.env
+# set TELEGRAM_BOT_TOKEN and TELEGRAM_WEB_APP_URL in telegram-bot/.env
+docker compose -f docker-compose.bot.yml up -d --build
+```
+
+### Logs / status
+
+```bash
+docker compose -f docker-compose.infra.yml ps
+docker compose -f docker-compose.app.yml ps
+docker compose -f docker-compose.bot.yml ps
+```
+
+### Stop services independently
+
+```bash
+docker compose -f docker-compose.bot.yml down
+docker compose -f docker-compose.app.yml down
+docker compose -f docker-compose.infra.yml down
+```
+
+### Remove Mongo data volume
+
+```bash
+docker compose -f docker-compose.infra.yml down -v
+```
+
+## Docker (Single File, Legacy)
+
+If you still prefer one file:
 
 ```bash
 docker compose up --build
-```
-
-What this does:
-- starts `mongo`, `backend`, and `frontend`
-- starts `nginx` as a reverse proxy (`http://localhost`)
-- keeps MongoDB data in named volume `mongo_data`
-- mounts `./backend` and `./frontend` into containers for live code reload
-- keeps container `node_modules` in named volumes so host and container deps do not conflict
-- routes `/api/*` to backend and `/ws` websocket traffic to backend
-
-Stop containers:
-
-```bash
-docker compose down
-```
-
-Stop and remove volumes too:
-
-```bash
-docker compose down -v
 ```
 
 ## 5) API Summary

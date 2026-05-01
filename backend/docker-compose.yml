@@ -1,0 +1,35 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: task_manager_backend_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_manager_backend_api
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/task_manager
+    ports:
+      - "3000:3000"
+      - "4000:4000/udp"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: sh -c "npm install && npm run dev"
+
+volumes:
+  mongo_data:
