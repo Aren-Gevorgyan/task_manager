@@ -6,7 +6,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const httpTarget =
     env.VITE_PROXY_TARGET ||
-    (mode === 'production' ? 'http://13.51.175.203' : 'http://backend:3000')
+    (mode === 'production'
+      ? 'http://13.51.175.203'
+      : 'http://127.0.0.1:3000')
   const wsTarget = httpTarget.replace(/^http/, 'ws')
 
   return {
