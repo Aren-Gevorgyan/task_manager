@@ -155,7 +155,7 @@ const App = () => {
     <main className={styles.page}>
       <section className={styles.content}>
         <header className={styles.header}>
-          <h1>Task Manager Admin</h1>
+          <h1>Task Manager Adminka </h1>
           {token ? (
             <button
               type="button"
