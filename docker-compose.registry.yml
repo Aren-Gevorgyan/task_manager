@@ -1,0 +1,14 @@
+# =============================================================================
+# Optional overlay: pull pre-built frontend + telegram-bot images from registry.
+# Nginx stays official image; config still mounted from the repo.
+#
+# Usage on the server:
+#   export REGISTRY_PREFIX=ghcr.io/your-org/your-repo
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+# =============================================================================
+services:
+  frontend:
+    image: ${REGISTRY_PREFIX}/frontend:latest
+  telegram-bot:
+    image: ${REGISTRY_PREFIX}/telegram-bot:latest

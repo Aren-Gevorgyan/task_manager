@@ -1,0 +1,19 @@
+# =============================================================================
+# Optional overlay: use pre-built images from your registry (CI/CD).
+# Same image is used for backend-1, backend-2, backend-3.
+#
+# Usage on the server (after setting REGISTRY_PREFIX to your GHCR path):
+#   export REGISTRY_PREFIX=ghcr.io/your-org/your-repo
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+#
+# REGISTRY_PREFIX must match images pushed by .github/workflows/deploy.yml
+# (see that file for the exact tag pattern).
+# =============================================================================
+services:
+  backend-1:
+    image: ${REGISTRY_PREFIX}/backend:latest
+  backend-2:
+    image: ${REGISTRY_PREFIX}/backend:latest
+  backend-3:
+    image: ${REGISTRY_PREFIX}/backend:latest
