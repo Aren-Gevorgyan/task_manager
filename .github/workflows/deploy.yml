@@ -242,26 +242,31 @@ jobs:
             git pull origin "${{ github.ref_name }}"
 
             if docker info >/dev/null 2>&1; then
-              DOCKER=(docker)
+              if [ -n "${GHCR_TOKEN:-}" ]; then
+                echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+              fi
+              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+              else
+                docker compose -f docker-compose.yml up -d --build
+              fi
             elif sudo -n docker info >/dev/null 2>&1; then
-              DOCKER=(sudo -n docker)
+              if [ -n "${GHCR_TOKEN:-}" ]; then
+                echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
+              fi
+              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+              else
+                sudo -n docker compose -f docker-compose.yml up -d --build
+              fi
             else
               echo "ERROR: $(whoami) cannot run Docker (socket permission)."
               echo "Fix ONE of:"
               echo "  sudo usermod -aG docker $(whoami) && newgrp docker"
               echo "  OR configure passwordless sudo for docker (sudo -n docker info must work)."
               exit 1
-            fi
-
-            if [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "$GHCR_TOKEN" | "${DOCKER[@]}" login ghcr.io -u "$GHCR_USER" --password-stdin
-            fi
-
-            if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml pull
-              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-            else
-              "${DOCKER[@]}" compose -f docker-compose.yml up -d --build
             fi
 
   # ---------------------------------------------------------------------------
