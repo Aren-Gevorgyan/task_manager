@@ -2,6 +2,10 @@
 # CD — Build & push images to GitHub Container Registry (GHCR), then deploy
 # over SSH (git pull + docker compose pull/up).
 #
+# Triggers:
+#   • workflow_dispatch — manual run with checkboxes (same as before).
+#   • push to branch production — full pipeline: build/push images + deploy both servers.
+#
 # Configure in GitHub: Settings → Secrets and variables → Actions
 #
 # Secrets (sensitive):
@@ -13,17 +17,14 @@
 #   SSH_PORT              — SSH port if not 22
 #   GHCR_PULL_TOKEN       — Classic PAT with read:packages; used on servers for
 #                             `docker login ghcr.io` when packages are private.
-#                             If images are public, omit (no login on server).
-#   GHCR_PULL_USER        — Optional; username for docker login (default: github.actor)
+#   GHCR_PULL_USER        — Username for docker login (optional; defaults to github.actor)
 #
 # Variables (non-secret):
 #   BACKEND_DEPLOY_PATH     — Absolute path to backend/ on the backend server
 #   FRONTEND_DEPLOY_PATH    — Absolute path to repo root on the frontend server
 #
-# Workflow inputs (Run workflow):
-#   publish_images          — Build on GitHub and push to ghcr.io
-#   deploy_use_registry     — On servers: pull images + compose with registry overlay
-#   deploy_backend / deploy_frontend — SSH deploy toggles
+# Manual workflow inputs (workflow_dispatch only):
+#   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
 #
 # Images (after publish):
 #   ghcr.io/<lowercase owner/repo>/backend:latest
@@ -33,6 +34,9 @@
 name: Deploy
 
 on:
+  # Automatic deploy when commits land on production (after merge from PR or direct push).
+  push:
+    branches: [production]
   workflow_dispatch:
     inputs:
       publish_images:
@@ -62,42 +66,48 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # This job always completes successfully so deploy jobs can `needs:` it.
-  # Image build/push steps run only when publish_images is true.
+  # Build/push when: manual with publish=true, OR push to production (always publish).
+  # Job always completes so deploy jobs can `needs:` it.
   # ---------------------------------------------------------------------------
   build-and-push:
     name: Build and push images to GHCR
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'push' && github.ref == 'refs/heads/production')
+      }}
     runs-on: ubuntu-latest
     steps:
-      # Clone the repo so Docker build contexts exist on the runner.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # GHCR paths must be lowercase (owner/repo may contain uppercase letters).
       - name: Compute lowercase GHCR registry prefix
         id: registry
         run: |
-          # github.repository is "owner/name"; lowercase for valid image names
           LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "prefix=ghcr.io/${LOWER}" >> "$GITHUB_OUTPUT"
           echo "REGISTRY_PREFIX=ghcr.io/${LOWER}" >> "$GITHUB_ENV"
           echo "Using registry prefix: ghcr.io/${LOWER}"
 
-      # Authenticate Docker to ghcr.io (only when we will push images this run).
+      # Publish images if: push to production, OR manual run with publish_images checked.
       - name: Log in to GitHub Container Registry
-        if: ${{ inputs.publish_images }}
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref == 'refs/heads/production')
+            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+          }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Same user as the commit that triggered the workflow.
           username: ${{ github.actor }}
-          # GITHUB_TOKEN is created automatically; packages:write allows push.
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # One image for all three backend replicas (backend-1/2/3 use the same tag).
       - name: Build and push backend image
-        if: ${{ inputs.publish_images }}
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref == 'refs/heads/production')
+            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+          }}
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -108,7 +118,11 @@ jobs:
             ${{ steps.registry.outputs.prefix }}/backend:${{ github.sha }}
 
       - name: Build and push frontend image
-        if: ${{ inputs.publish_images }}
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref == 'refs/heads/production')
+            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+          }}
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -119,7 +133,11 @@ jobs:
             ${{ steps.registry.outputs.prefix }}/frontend:${{ github.sha }}
 
       - name: Build and push telegram-bot image
-        if: ${{ inputs.publish_images }}
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref == 'refs/heads/production')
+            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+          }}
         uses: docker/build-push-action@v6
         with:
           context: ./telegram-bot
@@ -129,33 +147,45 @@ jobs:
             ${{ steps.registry.outputs.prefix }}/telegram-bot:latest
             ${{ steps.registry.outputs.prefix }}/telegram-bot:${{ github.sha }}
 
-      # When publish_images is false, previous steps are skipped; this explains why.
-      - name: Skip image publish (servers may build with docker compose --build)
-        if: ${{ !inputs.publish_images }}
+      - name: Skip image publish (manual run only — servers may use docker compose --build)
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch' && !inputs.publish_images }}
         run: |
           echo "publish_images=false — no images pushed; deploy will use on-server build if configured."
 
   # ---------------------------------------------------------------------------
-  # Backend server: git pull, optional ghcr login, pull + up or --build
+  # Backend server
   # ---------------------------------------------------------------------------
   deploy-backend:
     name: Deploy backend
     needs: build-and-push
     if: >-
       ${{
-        github.event_name == 'workflow_dispatch'
-        && inputs.deploy_backend
-        && needs.build-and-push.result == 'success'
+        needs.build-and-push.result == 'success'
+        && (
+          (github.event_name == 'push' && github.ref == 'refs/heads/production')
+          || (github.event_name == 'workflow_dispatch' && inputs.deploy_backend)
+        )
       }}
     runs-on: ubuntu-latest
     environment: production
     steps:
       - name: SSH deploy backend
         env:
-          # Must match build-and-push (lowercase ghcr.io/owner/repo).
           REGISTRY_PREFIX: ghcr.io/${{ github.repository }}
-          GHCR_USER: ${{ secrets.GHCR_PULL_USER || github.actor }}
+          GHCR_USER: ${{ secrets.GHCR_PULL_USER != '' && secrets.GHCR_PULL_USER || github.actor }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          # Strings "true"/"false" for remote shell (inputs missing on push).
+          DEPLOY_USE_REGISTRY: >-
+            ${{
+              (github.event_name == 'push' && github.ref == 'refs/heads/production')
+              || (github.event_name == 'workflow_dispatch' && inputs.deploy_use_registry)
+            }}
+          DID_PUBLISH: >-
+            ${{
+              (github.event_name == 'push' && github.ref == 'refs/heads/production')
+              || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+            }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.BACKEND_HOST }}
@@ -163,30 +193,24 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
-          envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN
+          envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
           script: |
-            # Exit on error; treat unset variables as error; pipeline failures propagate.
             set -euo pipefail
-            # Match CI image prefix (GHCR requires lowercase path).
             REGISTRY_PREFIX=$(echo "$REGISTRY_PREFIX" | tr '[:upper:]' '[:lower:]')
             export REGISTRY_PREFIX
-            # Refresh compose/nginx/env from Git (registry overlay file must exist after pull).
             cd "${{ vars.BACKEND_DEPLOY_PATH }}"
             git fetch origin
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
 
-            # Private GHCR packages: authenticate before pull. Skip if GHCR_TOKEN is empty (public images).
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
 
-            # Registry deploy: pull published layers then recreate containers.
-            if [ "${{ inputs.deploy_use_registry }}" = "true" ] && [ "${{ inputs.publish_images }}" = "true" ]; then
+            if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
               docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
               docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
             else
-              # Build images on the server (no GHCR or you disabled registry deploy).
               docker compose -f docker-compose.yml up -d --build
             fi
 
@@ -198,9 +222,11 @@ jobs:
     needs: build-and-push
     if: >-
       ${{
-        github.event_name == 'workflow_dispatch'
-        && inputs.deploy_frontend
-        && needs.build-and-push.result == 'success'
+        needs.build-and-push.result == 'success'
+        && (
+          (github.event_name == 'push' && github.ref == 'refs/heads/production')
+          || (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend)
+        )
       }}
     runs-on: ubuntu-latest
     environment: production
@@ -208,8 +234,18 @@ jobs:
       - name: SSH deploy frontend
         env:
           REGISTRY_PREFIX: ghcr.io/${{ github.repository }}
-          GHCR_USER: ${{ secrets.GHCR_PULL_USER || github.actor }}
+          GHCR_USER: ${{ secrets.GHCR_PULL_USER != '' && secrets.GHCR_PULL_USER || github.actor }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          DEPLOY_USE_REGISTRY: >-
+            ${{
+              (github.event_name == 'push' && github.ref == 'refs/heads/production')
+              || (github.event_name == 'workflow_dispatch' && inputs.deploy_use_registry)
+            }}
+          DID_PUBLISH: >-
+            ${{
+              (github.event_name == 'push' && github.ref == 'refs/heads/production')
+              || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+            }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.FRONTEND_HOST }}
@@ -217,7 +253,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
-          envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN
+          envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
           script: |
             set -euo pipefail
             REGISTRY_PREFIX=$(echo "$REGISTRY_PREFIX" | tr '[:upper:]' '[:lower:]')
@@ -231,7 +267,7 @@ jobs:
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
 
-            if [ "${{ inputs.deploy_use_registry }}" = "true" ] && [ "${{ inputs.publish_images }}" = "true" ]; then
+            if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
               docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
               docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
             else
