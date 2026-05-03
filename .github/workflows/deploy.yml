@@ -24,9 +24,10 @@
 #                             `docker login ghcr.io` when packages are private.
 #   GHCR_PULL_USER        — Username for docker login (optional; defaults to github.actor)
 #
-# Variables (non-secret):
-#   BACKEND_DEPLOY_PATH     — Absolute path to backend/ on the backend server
-#   FRONTEND_DEPLOY_PATH    — Absolute path to repo root on the frontend server
+# Variables (non-secret) — REQUIRED or remote script fails on `cd`:
+#   BACKEND_DEPLOY_PATH     — e.g. /home/ubuntu/task_manager/backend (must exist on server)
+#   FRONTEND_DEPLOY_PATH    — e.g. /home/ubuntu/task_manager (repo root with docker-compose.yml)
+#   Add under repo Settings → Variables (and duplicate under Environment "production" if you use it).
 #
 # Hosts may use Secrets OR Variables (IPs are often stored as Variables):
 #   BACKEND_HOST, FRONTEND_HOST — set at least one of secret or variable per host.
@@ -193,6 +194,10 @@ jobs:
             echo "::error::Set Secret or Variable SSH_USER (e.g. ubuntu)."
             exit 1
           fi
+          if [ -z "${{ vars.BACKEND_DEPLOY_PATH }}" ]; then
+            echo "::error::Set Repository Variable BACKEND_DEPLOY_PATH (absolute path to backend/ on the server, e.g. /home/ubuntu/task_manager/backend)."
+            exit 1
+          fi
           if [ -z "$SSH_PRIVATE_KEY" ]; then
             echo "::error::Set Secret SSH_PRIVATE_KEY (private key file contents, not .pub)."
             exit 1
@@ -276,6 +281,10 @@ jobs:
           fi
           if [ -z "${{ secrets.SSH_USER || vars.SSH_USER }}" ]; then
             echo "::error::Set Secret or Variable SSH_USER."
+            exit 1
+          fi
+          if [ -z "${{ vars.FRONTEND_DEPLOY_PATH }}" ]; then
+            echo "::error::Set Repository Variable FRONTEND_DEPLOY_PATH (absolute path to repo root on frontend server, e.g. /home/ubuntu/task_manager)."
             exit 1
           fi
           if [ -z "$SSH_PRIVATE_KEY" ]; then
