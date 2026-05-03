@@ -34,7 +34,8 @@
 # may see empty values (environment overrides repo-level settings).
 #
 # Backend SSH deploy: plain `docker compose` only (SSH user must be in docker group).
-# Frontend SSH deploy: `docker` first, else `sudo -n docker` if socket permission differs on that host.
+# Frontend SSH deploy: `docker` then `sudo -n docker`; use `docker compose` OR standalone `docker-compose`
+# if the Compose v2 plugin is missing (avoids bogus `docker -f` / unknown flag errors).
 #
 # Manual workflow inputs (workflow_dispatch only):
 #   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
@@ -332,21 +333,45 @@ jobs:
               if [ -n "${GHCR_TOKEN:-}" ]; then
                 echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
               fi
-              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+              if docker compose version >/dev/null 2>&1; then
+                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                  docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                  docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+                else
+                  docker compose -f docker-compose.yml up -d --build
+                fi
+              elif docker-compose version >/dev/null 2>&1; then
+                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                  docker-compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                  docker-compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+                else
+                  docker-compose -f docker-compose.yml up -d --build
+                fi
               else
-                docker compose -f docker-compose.yml up -d --build
+                echo "ERROR: Install Docker Compose v2 (docker compose) or docker-compose (standalone)."
+                exit 1
               fi
             elif sudo -n docker info >/dev/null 2>&1; then
               if [ -n "${GHCR_TOKEN:-}" ]; then
                 echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
               fi
-              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+              if sudo -n docker compose version >/dev/null 2>&1; then
+                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                  sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                  sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+                else
+                  sudo -n docker compose -f docker-compose.yml up -d --build
+                fi
+              elif sudo -n docker-compose version >/dev/null 2>&1; then
+                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+                  sudo -n docker-compose -f docker-compose.yml -f docker-compose.registry.yml pull
+                  sudo -n docker-compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+                else
+                  sudo -n docker-compose -f docker-compose.yml up -d --build
+                fi
               else
-                sudo -n docker compose -f docker-compose.yml up -d --build
+                echo "ERROR: sudo docker compose / docker-compose not available."
+                exit 1
               fi
             else
               echo "ERROR: $(whoami) cannot run Docker (socket permission)."
