@@ -131,7 +131,7 @@ jobs:
         if: >-
           ${{
             (github.event_name == 'push' && github.ref == 'refs/heads/production')
-            || (github.event_name == 'workflow_dispatch' && inputsfs.publish_images)
+            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
           }}
         uses: docker/build-push-action@v6
         with:
