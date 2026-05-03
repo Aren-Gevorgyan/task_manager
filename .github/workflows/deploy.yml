@@ -9,7 +9,12 @@
 # Configure in GitHub: Settings → Secrets and variables → Actions
 #
 # Secrets (sensitive):
-#   SSH_PRIVATE_KEY       — Deploy user’s private key (full PEM, begin/end lines)
+#   SSH_PRIVATE_KEY       — The *private* key (never the .pub file). Full PEM:
+#                         -----BEGIN ... PRIVATE KEY----- through -----END ...----- 
+#                         Multiline secret in GitHub is OK. If you see
+#                         "ssh: no key found", the secret is wrong format, has extra
+#                         quotes, or Windows CRLF only—re-paste with Unix line breaks.
+#                         PuTTY .ppk must be converted: puttygen x.ppk -O private-openssh -o key.pem
 #   SSH_USER              — Login on both servers (e.g. ubuntu, ec2-user)
 #   BACKEND_HOST          — Backend server IP/DNS
 #   FRONTEND_HOST         — Frontend server IP/DNS
@@ -126,7 +131,7 @@ jobs:
         if: >-
           ${{
             (github.event_name == 'push' && github.ref == 'refs/heads/production')
-            || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
+            || (github.event_name == 'workflow_dispatch' && inputsfs.publish_images)
           }}
         uses: docker/build-push-action@v6
         with:
@@ -176,7 +181,9 @@ jobs:
     environment: production
     steps:
       # Fail fast with a clear message if host/user/key are missing (avoids drone-ssh "missing server host").
-      - name: Verify backend SSH configuration
+      - name: Verify backend SSH configuration and write key file
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           if [ -z "${{ secrets.BACKEND_HOST || vars.BACKEND_HOST }}" ]; then
             echo "::error::Set Secret or Variable BACKEND_HOST (e.g. 13.51.175.203). Repo → Settings → Secrets and variables → Actions."
@@ -186,8 +193,16 @@ jobs:
             echo "::error::Set Secret or Variable SSH_USER (e.g. ubuntu)."
             exit 1
           fi
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "::error::Set Secret SSH_PRIVATE_KEY with the deploy user's private key."
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Set Secret SSH_PRIVATE_KEY (private key file contents, not .pub)."
+            exit 1
+          fi
+          mkdir -p .gha-ssh
+          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > .gha-ssh/deploy_key.pem
+          chmod 600 .gha-ssh/deploy_key.pem
+          if ! ssh-keygen -y -f .gha-ssh/deploy_key.pem > /dev/null 2>&1; then
+            echo "::error::SSH_PRIVATE_KEY is not a valid OpenSSH/PEM private key."
+            echo "Use the file WITHOUT .pub; include BEGIN/END lines. Re-paste in GitHub (multiline). No PPK—convert with puttygen -O private-openssh."
             exit 1
           fi
 
@@ -210,7 +225,7 @@ jobs:
         with:
           host: ${{ secrets.BACKEND_HOST || vars.BACKEND_HOST }}
           username: ${{ secrets.SSH_USER || vars.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key_path: .gha-ssh/deploy_key.pem
           port: ${{ secrets.SSH_PORT || vars.SSH_PORT || 22 }}
           script_stop: true
           envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
@@ -251,7 +266,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Verify frontend SSH configuration
+      - name: Verify frontend SSH configuration and write key file
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           if [ -z "${{ secrets.FRONTEND_HOST || vars.FRONTEND_HOST }}" ]; then
             echo "::error::Set Secret or Variable FRONTEND_HOST (e.g. 16.171.174.26)."
@@ -261,8 +278,15 @@ jobs:
             echo "::error::Set Secret or Variable SSH_USER."
             exit 1
           fi
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
-            echo "::error::Set Secret SSH_PRIVATE_KEY."
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Set Secret SSH_PRIVATE_KEY (private key, not .pub)."
+            exit 1
+          fi
+          mkdir -p .gha-ssh
+          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > .gha-ssh/deploy_key.pem
+          chmod 600 .gha-ssh/deploy_key.pem
+          if ! ssh-keygen -y -f .gha-ssh/deploy_key.pem > /dev/null 2>&1; then
+            echo "::error::SSH_PRIVATE_KEY is not a valid private key. Paste full PEM; not the .pub file."
             exit 1
           fi
 
@@ -285,7 +309,7 @@ jobs:
         with:
           host: ${{ secrets.FRONTEND_HOST || vars.FRONTEND_HOST }}
           username: ${{ secrets.SSH_USER || vars.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key_path: .gha-ssh/deploy_key.pem
           port: ${{ secrets.SSH_PORT || vars.SSH_PORT || 22 }}
           script_stop: true
           envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
