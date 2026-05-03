@@ -23,6 +23,11 @@
 #   BACKEND_DEPLOY_PATH     — Absolute path to backend/ on the backend server
 #   FRONTEND_DEPLOY_PATH    — Absolute path to repo root on the frontend server
 #
+# Hosts may use Secrets OR Variables (IPs are often stored as Variables):
+#   BACKEND_HOST, FRONTEND_HOST — set at least one of secret or variable per host.
+# If you use Environment "production", add the same secrets/vars there or deployment
+# may see empty values (environment overrides repo-level settings).
+#
 # Manual workflow inputs (workflow_dispatch only):
 #   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
 #
@@ -170,12 +175,28 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      # Fail fast with a clear message if host/user/key are missing (avoids drone-ssh "missing server host").
+      - name: Verify backend SSH configuration
+        run: |
+          if [ -z "${{ secrets.BACKEND_HOST || vars.BACKEND_HOST }}" ]; then
+            echo "::error::Set Secret or Variable BACKEND_HOST (e.g. 13.51.175.203). Repo → Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_USER || vars.SSH_USER }}" ]; then
+            echo "::error::Set Secret or Variable SSH_USER (e.g. ubuntu)."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Set Secret SSH_PRIVATE_KEY with the deploy user's private key."
+            exit 1
+          fi
+
       - name: SSH deploy backend
+        uses: appleboy/ssh-action@v1.2.0
         env:
           REGISTRY_PREFIX: ghcr.io/${{ github.repository }}
           GHCR_USER: ${{ secrets.GHCR_PULL_USER != '' && secrets.GHCR_PULL_USER || github.actor }}
           GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
-          # Strings "true"/"false" for remote shell (inputs missing on push).
           DEPLOY_USE_REGISTRY: >-
             ${{
               (github.event_name == 'push' && github.ref == 'refs/heads/production')
@@ -186,12 +207,11 @@ jobs:
               (github.event_name == 'push' && github.ref == 'refs/heads/production')
               || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
             }}
-        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.BACKEND_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          host: ${{ secrets.BACKEND_HOST || vars.BACKEND_HOST }}
+          username: ${{ secrets.SSH_USER || vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT || vars.SSH_PORT || 22 }}
           script_stop: true
           envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
           script: |
@@ -231,7 +251,23 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Verify frontend SSH configuration
+        run: |
+          if [ -z "${{ secrets.FRONTEND_HOST || vars.FRONTEND_HOST }}" ]; then
+            echo "::error::Set Secret or Variable FRONTEND_HOST (e.g. 16.171.174.26)."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_USER || vars.SSH_USER }}" ]; then
+            echo "::error::Set Secret or Variable SSH_USER."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Set Secret SSH_PRIVATE_KEY."
+            exit 1
+          fi
+
       - name: SSH deploy frontend
+        uses: appleboy/ssh-action@v1.2.0
         env:
           REGISTRY_PREFIX: ghcr.io/${{ github.repository }}
           GHCR_USER: ${{ secrets.GHCR_PULL_USER != '' && secrets.GHCR_PULL_USER || github.actor }}
@@ -246,12 +282,11 @@ jobs:
               (github.event_name == 'push' && github.ref == 'refs/heads/production')
               || (github.event_name == 'workflow_dispatch' && inputs.publish_images)
             }}
-        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.FRONTEND_HOST }}
-          username: ${{ secrets.SSH_USER }}
+          host: ${{ secrets.FRONTEND_HOST || vars.FRONTEND_HOST }}
+          username: ${{ secrets.SSH_USER || vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT || vars.SSH_PORT || 22 }}
           script_stop: true
           envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
           script: |
