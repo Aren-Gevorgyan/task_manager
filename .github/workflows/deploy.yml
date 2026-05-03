@@ -33,6 +33,10 @@
 # If you use Environment "production", add the same secrets/vars there or deployment
 # may see empty values (environment overrides repo-level settings).
 #
+# Docker on each server: the SSH user must access the Docker socket (usually in group docker):
+#   sudo usermod -aG docker ubuntu && newgrp docker   # replace ubuntu with SSH_USER if different
+# Without this, `docker compose pull` fails with permission denied on /var/run/docker.sock.
+#
 # Manual workflow inputs (workflow_dispatch only):
 #   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
 #
@@ -238,6 +242,12 @@ jobs:
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
 
+            if ! docker info >/dev/null 2>&1; then
+              echo "ERROR: User $(whoami) cannot use Docker (permission denied on docker.sock)."
+              echo "On this server run: sudo usermod -aG docker $(whoami) && newgrp docker"
+              exit 1
+            fi
+
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
@@ -321,6 +331,12 @@ jobs:
             git fetch origin
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
+
+            if ! docker info >/dev/null 2>&1; then
+              echo "ERROR: User $(whoami) cannot use Docker (permission denied on docker.sock)."
+              echo "On this server run: sudo usermod -aG docker $(whoami) && newgrp docker"
+              exit 1
+            fi
 
             if [ -n "${GHCR_TOKEN:-}" ]; then
               echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
