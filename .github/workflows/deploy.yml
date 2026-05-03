@@ -33,8 +33,8 @@
 # If you use Environment "production", add the same secrets/vars there or deployment
 # may see empty values (environment overrides repo-level settings).
 #
-# Docker on each server: remote script uses plain `docker` / `sudo -n docker` branches (no bash arrays—
-# appleboy may run `/bin/sh`, where DOCKER=(...) breaks and yields `docker -f` / unknown flag errors).
+# Backend SSH deploy: plain `docker compose` only (SSH user must be in docker group).
+# Frontend SSH deploy: `docker` first, else `sudo -n docker` if socket permission differs on that host.
 #
 # Manual workflow inputs (workflow_dispatch only):
 #   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
@@ -241,36 +241,22 @@ jobs:
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
 
-            if docker info >/dev/null 2>&1; then
-              if [ -n "${GHCR_TOKEN:-}" ]; then
-                echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-              fi
-              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-              else
-                docker compose -f docker-compose.yml up -d --build
-              fi
-            elif sudo -n docker info >/dev/null 2>&1; then
-              if [ -n "${GHCR_TOKEN:-}" ]; then
-                echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
-              fi
-              if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-              else
-                sudo -n docker compose -f docker-compose.yml up -d --build
-              fi
-            else
-              echo "ERROR: $(whoami) cannot run Docker (socket permission)."
-              echo "Fix ONE of:"
-              echo "  sudo usermod -aG docker $(whoami) && newgrp docker"
-              echo "  OR configure passwordless sudo for docker (sudo -n docker info must work)."
+            if ! docker info >/dev/null 2>&1; then
+              echo "ERROR: $(whoami) cannot use Docker on backend host. sudo usermod -aG docker $(whoami) && newgrp docker"
               exit 1
+            fi
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
+            if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+              docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
+              docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+            else
+              docker compose -f docker-compose.yml up -d --build
             fi
 
   # ---------------------------------------------------------------------------
-  # Frontend server
+  # Frontend server (docker socket may require sudo -n docker fallback on some VMs)
   # ---------------------------------------------------------------------------
   deploy-frontend:
     name: Deploy frontend
