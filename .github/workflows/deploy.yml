@@ -24,10 +24,10 @@
 #                             `docker login ghcr.io` when packages are private.
 #   GHCR_PULL_USER        — Username for docker login (optional; defaults to github.actor)
 #
-# Variables (non-secret) — REQUIRED or remote script fails on `cd`:
-#   BACKEND_DEPLOY_PATH     — e.g. /home/ubuntu/task_manager/backend (must exist on server)
-#   FRONTEND_DEPLOY_PATH    — e.g. /home/ubuntu/task_manager (repo root with docker-compose.yml)
-#   Add under repo Settings → Variables (and duplicate under Environment "production" if you use it).
+# Deploy paths — REQUIRED or remote `cd` fails. Use Repository *Variables* (recommended) OR *Secrets*
+# if you prefer (same names). With Environment "production", add them on that environment too.
+#   BACKEND_DEPLOY_PATH     — e.g. /home/ubuntu/task_manager/backend
+#   FRONTEND_DEPLOY_PATH    — e.g. /home/ubuntu/task_manager
 #
 # Hosts may use Secrets OR Variables (IPs are often stored as Variables):
 #   BACKEND_HOST, FRONTEND_HOST — set at least one of secret or variable per host.
@@ -194,8 +194,8 @@ jobs:
             echo "::error::Set Secret or Variable SSH_USER (e.g. ubuntu)."
             exit 1
           fi
-          if [ -z "${{ vars.BACKEND_DEPLOY_PATH }}" ]; then
-            echo "::error::Set Repository Variable BACKEND_DEPLOY_PATH (absolute path to backend/ on the server, e.g. /home/ubuntu/task_manager/backend)."
+          if [ -z "${{ vars.BACKEND_DEPLOY_PATH || secrets.BACKEND_DEPLOY_PATH }}" ]; then
+            echo "::error::Set BACKEND_DEPLOY_PATH (Actions → Variables or Secrets). Example: /home/ubuntu/task_manager/backend"
             exit 1
           fi
           if [ -z "$SSH_PRIVATE_KEY" ]; then
@@ -238,7 +238,7 @@ jobs:
             set -euo pipefail
             REGISTRY_PREFIX=$(echo "$REGISTRY_PREFIX" | tr '[:upper:]' '[:lower:]')
             export REGISTRY_PREFIX
-            cd "${{ vars.BACKEND_DEPLOY_PATH }}"
+            cd "${{ vars.BACKEND_DEPLOY_PATH || secrets.BACKEND_DEPLOY_PATH }}"
             git fetch origin
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
@@ -283,8 +283,8 @@ jobs:
             echo "::error::Set Secret or Variable SSH_USER."
             exit 1
           fi
-          if [ -z "${{ vars.FRONTEND_DEPLOY_PATH }}" ]; then
-            echo "::error::Set Repository Variable FRONTEND_DEPLOY_PATH (absolute path to repo root on frontend server, e.g. /home/ubuntu/task_manager)."
+          if [ -z "${{ vars.FRONTEND_DEPLOY_PATH || secrets.FRONTEND_DEPLOY_PATH }}" ]; then
+            echo "::error::Set FRONTEND_DEPLOY_PATH (Actions → Variables or Secrets). Example: /home/ubuntu/task_manager"
             exit 1
           fi
           if [ -z "$SSH_PRIVATE_KEY" ]; then
@@ -326,7 +326,7 @@ jobs:
             set -euo pipefail
             REGISTRY_PREFIX=$(echo "$REGISTRY_PREFIX" | tr '[:upper:]' '[:lower:]')
             export REGISTRY_PREFIX
-            cd "${{ vars.FRONTEND_DEPLOY_PATH }}"
+            cd "${{ vars.FRONTEND_DEPLOY_PATH || secrets.FRONTEND_DEPLOY_PATH }}"
             git fetch origin
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
