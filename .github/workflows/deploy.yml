@@ -409,7 +409,13 @@ jobs:
               echo "Disk usage after Docker cleanup:"
               df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
 
-              if docker compose version >/dev/null 2>&1; then
+              set +e
+              docker compose version >/dev/null 2>&1
+              HAS_COMPOSE_PLUGIN=$?
+              command -v docker-compose >/dev/null 2>&1
+              HAS_DOCKER_COMPOSE_BIN=$?
+              set -e
+              if [ "$HAS_COMPOSE_PLUGIN" -eq 0 ]; then
                 echo "Using docker compose (plugin)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
@@ -420,7 +426,7 @@ jobs:
                 else
                   docker compose -f docker-compose.yml up -d --build
                 fi
-              elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
+              elif [ "$HAS_DOCKER_COMPOSE_BIN" -eq 0 ] && docker-compose version >/dev/null 2>&1; then
                 echo "Using docker-compose (standalone)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
@@ -446,7 +452,13 @@ jobs:
               echo "Disk usage after sudo Docker cleanup:"
               df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
 
-              if sudo -n docker compose version >/dev/null 2>&1; then
+              set +e
+              sudo -n docker compose version >/dev/null 2>&1
+              HAS_SUDO_COMPOSE_PLUGIN=$?
+              sudo -n docker-compose version >/dev/null 2>&1
+              HAS_SUDO_DOCKER_COMPOSE_BIN=$?
+              set -e
+              if [ "$HAS_SUDO_COMPOSE_PLUGIN" -eq 0 ]; then
                 echo "Using sudo docker compose (plugin)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
@@ -457,7 +469,7 @@ jobs:
                 else
                   sudo -n docker compose -f docker-compose.yml up -d --build
                 fi
-              elif command -v docker-compose >/dev/null 2>&1 && sudo -n docker-compose version >/dev/null 2>&1; then
+              elif [ "$HAS_SUDO_DOCKER_COMPOSE_BIN" -eq 0 ]; then
                 echo "Using sudo docker-compose (standalone)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
