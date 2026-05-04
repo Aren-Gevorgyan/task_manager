@@ -386,16 +386,31 @@ jobs:
           script_stop: true
           envs: REGISTRY_PREFIX,GHCR_USER,GHCR_TOKEN,DEPLOY_USE_REGISTRY,DID_PUBLISH
           script: |
-            set -euo pipefail
+            set -eu
             REGISTRY_PREFIX=$(echo "$REGISTRY_PREFIX" | tr '[:upper:]' '[:lower:]')
             export REGISTRY_PREFIX
+            echo "Starting frontend deploy on host: $(hostname)"
+            echo "User: $(whoami)"
             cd "${{ vars.FRONTEND_DEPLOY_PATH || secrets.FRONTEND_DEPLOY_PATH || '/home/ubuntu/task_manager' }}"
+            echo "Working dir: $(pwd)"
             git fetch origin
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
+            echo "Disk usage before Docker checks:"
+            df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
 
             if docker info >/dev/null 2>&1; then
+              echo "Docker available without sudo."
+              docker system prune -af || true
+              docker builder prune -af || true
+              docker image prune -af || true
+              docker container prune -f || true
+              docker network prune -f || true
+              echo "Disk usage after Docker cleanup:"
+              df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
+
               if docker compose version >/dev/null 2>&1; then
+                echo "Using docker compose (plugin)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
                 fi
@@ -405,7 +420,8 @@ jobs:
                 else
                   docker compose -f docker-compose.yml up -d --build
                 fi
-              elif docker-compose version >/dev/null 2>&1; then
+              elif command -v docker-compose >/dev/null 2>&1 && docker-compose version >/dev/null 2>&1; then
+                echo "Using docker-compose (standalone)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
                 fi
@@ -417,10 +433,21 @@ jobs:
                 fi
               else
                 echo "ERROR: Docker is available, but neither 'docker compose' nor 'docker-compose' is installed."
+                docker --version || true
                 exit 1
               fi
             elif sudo -n docker info >/dev/null 2>&1; then
+              echo "Docker available via sudo -n."
+              sudo -n docker system prune -af || true
+              sudo -n docker builder prune -af || true
+              sudo -n docker image prune -af || true
+              sudo -n docker container prune -f || true
+              sudo -n docker network prune -f || true
+              echo "Disk usage after sudo Docker cleanup:"
+              df -h / /var/lib/docker /var/lib/containerd 2>/dev/null || df -h /
+
               if sudo -n docker compose version >/dev/null 2>&1; then
+                echo "Using sudo docker compose (plugin)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
                 fi
@@ -430,7 +457,8 @@ jobs:
                 else
                   sudo -n docker compose -f docker-compose.yml up -d --build
                 fi
-              elif sudo -n docker-compose version >/dev/null 2>&1; then
+              elif command -v docker-compose >/dev/null 2>&1 && sudo -n docker-compose version >/dev/null 2>&1; then
+                echo "Using sudo docker-compose (standalone)."
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
                 fi
@@ -442,6 +470,7 @@ jobs:
                 fi
               else
                 echo "ERROR: sudo docker is available, but neither 'docker compose' nor 'docker-compose' is installed."
+                sudo -n docker --version || true
                 exit 1
               fi
             else
