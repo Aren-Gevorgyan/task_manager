@@ -242,6 +242,17 @@ jobs:
             git pull origin "${{ github.ref_name }}"
 
             if docker info >/dev/null 2>&1; then
+              echo "Disk usage before Docker cleanup:"
+              df -h / /var/lib/containerd 2>/dev/null || df -h /
+              # Free Docker cache to prevent image extraction failures on small disks.
+              docker system prune -af || true
+              docker builder prune -af || true
+              docker image prune -af || true
+              docker container prune -f || true
+              docker network prune -f || true
+              echo "Disk usage after Docker cleanup:"
+              df -h / /var/lib/containerd 2>/dev/null || df -h /
+
               if docker compose version >/dev/null 2>&1; then
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
@@ -267,6 +278,17 @@ jobs:
                 exit 1
               fi
             elif sudo -n docker info >/dev/null 2>&1; then
+              echo "Disk usage before Docker cleanup:"
+              df -h / /var/lib/containerd 2>/dev/null || df -h /
+              # Free Docker cache to prevent image extraction failures on small disks.
+              sudo -n docker system prune -af || true
+              sudo -n docker builder prune -af || true
+              sudo -n docker image prune -af || true
+              sudo -n docker container prune -f || true
+              sudo -n docker network prune -f || true
+              echo "Disk usage after Docker cleanup:"
+              df -h / /var/lib/containerd 2>/dev/null || df -h /
+
               if sudo -n docker compose version >/dev/null 2>&1; then
                 if [ -n "${GHCR_TOKEN:-}" ]; then
                   echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
