@@ -8,7 +8,7 @@ const TaskForm = ({ token, taskInput, onTaskInputChange, onCreateTask, isSubmitt
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} aria-label="Create task form">
-      <h2>Create new task</h2>
+      <h2>Create task</h2>
       <div className={styles.row}>
         <label className={styles.field}>
           Title
