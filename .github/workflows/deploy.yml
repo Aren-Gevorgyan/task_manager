@@ -33,9 +33,8 @@
 # If you use Environment "production", add the same secrets/vars there or deployment
 # may see empty values (environment overrides repo-level settings).
 #
-# Backend SSH deploy: plain `docker compose` only (SSH user must be in docker group).
-# Frontend SSH deploy: `docker` then `sudo -n docker`; use `docker compose` OR standalone `docker-compose`
-# if the Compose v2 plugin is missing (avoids bogus `docker -f` / unknown flag errors).
+# Docker on each server: deploy script uses `docker` if allowed, else `sudo -n docker` (must work
+# non-interactively). Otherwise add user to group docker: sudo usermod -aG docker ubuntu && newgrp docker
 #
 # Manual workflow inputs (workflow_dispatch only):
 #   publish_images, deploy_use_registry, deploy_backend, deploy_frontend
@@ -242,22 +241,31 @@ jobs:
             git checkout "${{ github.ref_name }}"
             git pull origin "${{ github.ref_name }}"
 
-            if ! docker info >/dev/null 2>&1; then
-              echo "ERROR: $(whoami) cannot use Docker on backend host. sudo usermod -aG docker $(whoami) && newgrp docker"
+            if docker info >/dev/null 2>&1; then
+              DOCKER=(docker)
+            elif sudo -n docker info >/dev/null 2>&1; then
+              DOCKER=(sudo -n docker)
+            else
+              echo "ERROR: $(whoami) cannot run Docker (socket permission)."
+              echo "Fix ONE of:"
+              echo "  sudo usermod -aG docker $(whoami) && newgrp docker"
+              echo "  OR configure passwordless sudo for docker (sudo -n docker info must work)."
               exit 1
             fi
+
             if [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+              echo "$GHCR_TOKEN" | "${DOCKER[@]}" login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
+
             if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-              docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-              docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml pull
+              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml up -d
             else
-              docker compose -f docker-compose.yml up -d --build
+              "${DOCKER[@]}" compose -f docker-compose.yml up -d --build
             fi
 
   # ---------------------------------------------------------------------------
-  # Frontend server (docker socket may require sudo -n docker fallback on some VMs)
+  # Frontend server
   # ---------------------------------------------------------------------------
   deploy-frontend:
     name: Deploy frontend
@@ -330,53 +338,24 @@ jobs:
             git pull origin "${{ github.ref_name }}"
 
             if docker info >/dev/null 2>&1; then
-              if [ -n "${GHCR_TOKEN:-}" ]; then
-                echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-              fi
-              if docker compose version >/dev/null 2>&1; then
-                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                  docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                  docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-                else
-                  docker compose -f docker-compose.yml up -d --build
-                fi
-              elif docker-compose version >/dev/null 2>&1; then
-                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                  docker-compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                  docker-compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-                else
-                  docker-compose -f docker-compose.yml up -d --build
-                fi
-              else
-                echo "ERROR: Install Docker Compose v2 (docker compose) or docker-compose (standalone)."
-                exit 1
-              fi
+              DOCKER=(docker)
             elif sudo -n docker info >/dev/null 2>&1; then
-              if [ -n "${GHCR_TOKEN:-}" ]; then
-                echo "$GHCR_TOKEN" | sudo -n docker login ghcr.io -u "$GHCR_USER" --password-stdin
-              fi
-              if sudo -n docker compose version >/dev/null 2>&1; then
-                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                  sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                  sudo -n docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-                else
-                  sudo -n docker compose -f docker-compose.yml up -d --build
-                fi
-              elif sudo -n docker-compose version >/dev/null 2>&1; then
-                if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
-                  sudo -n docker-compose -f docker-compose.yml -f docker-compose.registry.yml pull
-                  sudo -n docker-compose -f docker-compose.yml -f docker-compose.registry.yml up -d
-                else
-                  sudo -n docker-compose -f docker-compose.yml up -d --build
-                fi
-              else
-                echo "ERROR: sudo docker compose / docker-compose not available."
-                exit 1
-              fi
+              DOCKER=(sudo -n docker)
             else
               echo "ERROR: $(whoami) cannot run Docker (socket permission)."
               echo "Fix ONE of:"
               echo "  sudo usermod -aG docker $(whoami) && newgrp docker"
               echo "  OR configure passwordless sudo for docker (sudo -n docker info must work)."
               exit 1
+            fi
+
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | "${DOCKER[@]}" login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
+
+            if [ "$DEPLOY_USE_REGISTRY" = "true" ] && [ "$DID_PUBLISH" = "true" ]; then
+              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml pull
+              "${DOCKER[@]}" compose -f docker-compose.yml -f docker-compose.registry.yml up -d
+            else
+              "${DOCKER[@]}" compose -f docker-compose.yml up -d --build
             fi
